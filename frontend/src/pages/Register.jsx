@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -15,10 +16,9 @@ export default function Register() {
     setError("");
     try {
       await api.post("/api/auth/register", { name, email, password, role });
-      alert("Registered. Please log in.");
-      navigate("/login");
+      navigate("/login", { state: { message: "Registration successful. Please sign in." } });
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      setError(getApiErrorMessage(err, "Registration failed"));
     }
   };
 
