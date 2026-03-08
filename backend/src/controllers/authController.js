@@ -67,3 +67,15 @@ export const getCurrentUser = async (req, res, next) => {
     next(err);
   }
 };
+
+export const listResponders = async (req, res, next) => {
+  try {
+    const responders = await User.find({ role: { $in: ["responder", "admin"] } })
+      .select("_id name email role")
+      .sort({ name: 1 });
+
+    res.json({ responders });
+  } catch (err) {
+    next(err);
+  }
+};
