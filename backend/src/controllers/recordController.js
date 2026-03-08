@@ -4,21 +4,37 @@ import { broadcast } from "../websocket/wsServer.js";
 
 const normalizeSeverity = (severity) => severity?.toLowerCase();
 const normalizeStatus = (status) => status?.toLowerCase();
+const responderProjection = "_id name email role";
+
+const canManageAllIncidents = (role) => role === "admin" || role === "responder";
+
+const enrichRecordQuery = (query) => query.populate("assignedTo", responderProjection).populate("userId", responderProjection);
 
 export const getRecords = async (req, res, next) => {
   try {
-    const query = req.user.role === "admin" ? {} : { userId: req.user.id };
-    const { severity, status, assignedTo } = req.query;
+    const query = canManageAllIncidents(req.user.role) ? {} : { userId: req.user.id };
+    const { severity, status, assignedTo, q } = req.query;
     const page = Math.max(Number(req.query.page || 1), 1);
     const limit = Math.max(Number(req.query.limit || 10), 1);
     const skip = (page - 1) * limit;
 
     if (severity) query.severity = normalizeSeverity(severity);
     if (status) query.status = normalizeStatus(status);
-    if (assignedTo) query.assignedTo = assignedTo;
+    if (assignedTo === "unassigned") {
+      query.assignedTo = null;
+    } else if (assignedTo) {
+      query.assignedTo = assignedTo;
+    }
+
+    if (q?.trim()) {
+      query.$or = [
+        { title: { $regex: q.trim(), $options: "i" } },
+        { content: { $regex: q.trim(), $options: "i" } }
+      ];
+    }
 
     const [incidents, total] = await Promise.all([
-      Record.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      enrichRecordQuery(Record.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit)),
       Record.countDocuments(query)
     ]);
 
@@ -49,9 +65,10 @@ export const createRecord = async (req, res, next) => {
       assignedTo
     });
 
-    broadcast("incident_created", record);
+    const hydratedRecord = await enrichRecordQuery(Record.findById(record._id));
+    broadcast("incident_created", hydratedRecord);
     logger.trackEvent("record_created", { userId: req.user.id, recordId: record._id.toString() });
-    res.status(201).json(record);
+    res.status(201).json(hydratedRecord);
   } catch (err) {
     next(err);
   }
@@ -59,11 +76,11 @@ export const createRecord = async (req, res, next) => {
 
 export const getRecordById = async (req, res, next) => {
   try {
-    const query = req.user.role === "admin"
+    const query = canManageAllIncidents(req.user.role)
       ? { _id: req.params.id }
       : { _id: req.params.id, userId: req.user.id };
 
-    const incident = await Record.findOne(query);
+    const incident = await enrichRecordQuery(Record.findOne(query));
     if (!incident) return res.status(404).json({ message: "Record not found" });
 
     return res.json(incident);
@@ -76,7 +93,7 @@ export const updateRecord = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { title, content, description, metadata, severity, status, assignedTo } = req.body;
-    const query = req.user.role === "admin" ? { _id: id } : { _id: id, userId: req.user.id };
+    const query = canManageAllIncidents(req.user.role) ? { _id: id } : { _id: id, userId: req.user.id };
 
     const normalizedStatus = normalizeStatus(status);
     const update = {
@@ -91,7 +108,7 @@ export const updateRecord = async (req, res, next) => {
     if (normalizedStatus === "acknowledged") update.acknowledgedAt = new Date();
     if (normalizedStatus === "resolved") update.resolvedAt = new Date();
 
-    const record = await Record.findOneAndUpdate(query, update, { new: true });
+    const record = await enrichRecordQuery(Record.findOneAndUpdate(query, update, { new: true }));
     if (!record) return res.status(404).json({ message: "Record not found" });
 
     if (record.status === "resolved") {
