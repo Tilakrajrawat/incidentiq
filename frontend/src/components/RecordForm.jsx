@@ -1,22 +1,38 @@
 import { useState } from "react";
+import ErrorBanner from "./ErrorBanner.jsx";
 
 export default function RecordForm({ onCreate }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [severity, setSeverity] = useState("LOW");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) return;
-    onCreate({ title, description: content, severity });
-    setTitle("");
-    setContent("");
-    setSeverity("LOW");
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+
+    setError("");
+    setSaving(true);
+    try {
+      await onCreate({ title, description: content, severity });
+      setTitle("");
+      setContent("");
+      setSeverity("LOW");
+    } catch (createError) {
+      setError(createError.message || "Failed to create incident.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <form className="card" onSubmit={submit}>
       <h3>Create Incident</h3>
+      <ErrorBanner message={error} />
       <input
         className="input"
         placeholder="Title"
@@ -25,7 +41,7 @@ export default function RecordForm({ onCreate }) {
       />
       <textarea
         className="textarea"
-        placeholder="Content (optional)"
+        placeholder="Description"
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
@@ -35,7 +51,7 @@ export default function RecordForm({ onCreate }) {
         <option value="MEDIUM">Medium</option>
         <option value="LOW">Low</option>
       </select>
-      <button className="btn primary">Add</button>
+      <button className="btn primary" disabled={saving}>{saving ? "Adding..." : "Add"}</button>
     </form>
   );
 }

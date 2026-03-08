@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
 import { useAuth } from "../lib/auth.jsx";
-
-
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,6 +10,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -20,7 +20,7 @@ export default function Login() {
       login(res.data);
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      setError(getApiErrorMessage(err, "Login failed"));
     }
   };
 
@@ -28,6 +28,7 @@ export default function Login() {
     <div className="auth-page">
       <form className="card auth-card" onSubmit={submit}>
         <h2>Login</h2>
+        {location.state?.message && <p className="success-text">{location.state.message}</p>}
         {error && <p className="error-text">{error}</p>}
         <input
           className="input"

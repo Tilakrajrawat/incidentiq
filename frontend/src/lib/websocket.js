@@ -1,4 +1,5 @@
 const listeners = new Map();
+const connectionListeners = new Set();
 let socket;
 let reconnectTimer;
 
@@ -7,8 +8,19 @@ const getSocketUrl = () => {
   return apiUrl.replace(/^http/, "ws");
 };
 
+const notifyConnectionStatus = (connected) => {
+  connectionListeners.forEach((listener) => listener(connected));
+};
+
 const connect = () => {
+  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  clearTimeout(reconnectTimer);
   socket = new WebSocket(getSocketUrl());
+
+  socket.onopen = () => notifyConnectionStatus(true);
 
   socket.onmessage = (message) => {
     try {
@@ -21,7 +33,12 @@ const connect = () => {
   };
 
   socket.onclose = () => {
+    notifyConnectionStatus(false);
     reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  socket.onerror = () => {
+    notifyConnectionStatus(false);
   };
 };
 
@@ -45,6 +62,16 @@ export const unsubscribe = (event, callback) => {
     event,
     callbacks.filter((entry) => entry !== callback)
   );
+};
+
+export const subscribeConnection = (callback) => {
+  connectionListeners.add(callback);
+  callback(Boolean(socket && socket.readyState === WebSocket.OPEN));
+  connect();
+};
+
+export const unsubscribeConnection = (callback) => {
+  connectionListeners.delete(callback);
 };
 
 export const disconnect = () => {

@@ -4,50 +4,29 @@ import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Records from "./pages/Records.jsx";
 import IncidentDetail from "./pages/IncidentDetail.jsx";
+import Analytics from "./pages/Analytics.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
+
+const withLayout = (Component, allowedRoles) => (
+  <ProtectedRoute allowedRoles={allowedRoles}>
+    <Layout>
+      <Component />
+    </Layout>
+  </ProtectedRoute>
+);
 
 export default function App() {
   return (
     <Routes>
-      {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Protected routes (wrapped in Layout) */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/incidents"
-        element=
-        {
-          <ProtectedRoute>
-            <Layout>
-              <Records />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/incidents/:id"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <IncidentDetail />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/" element={withLayout(Dashboard)} />
+      <Route path="/incidents" element={withLayout(Records)} />
+      <Route path="/incidents/:id" element={withLayout(IncidentDetail)} />
+      <Route path="/analytics" element={withLayout(Analytics, ["admin"])} />
 
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

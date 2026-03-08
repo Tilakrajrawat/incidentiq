@@ -1,46 +1,76 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SeverityBadge from "./SeverityBadge.jsx";
-import { subscribe, unsubscribe } from "../lib/websocket";
+import { subscribe, unsubscribe, subscribeConnection, unsubscribeConnection } from "../lib/websocket";
+
+const eventMeta = {
+  incident_created: "New incident created",
+  incident_escalated: "Incident escalated",
+  incident_updated: "Incident updated",
+  incident_resolved: "Incident resolved"
+};
 
 export default function RealTimeAlert() {
   const [alerts, setAlerts] = useState([]);
+  const lastConnectionState = useRef(null);
 
   useEffect(() => {
-    const onIncidentCreated = (incident) => {
-      setAlerts((prev) => [...prev, { id: crypto.randomUUID(), type: "New Incident", incident }]);
+    const handlers = Object.keys(eventMeta).map((event) => {
+      const handler = (incident) => {
+        setAlerts((prev) => [...prev, { id: crypto.randomUUID(), event, incident, kind: "incident" }]);
+      };
+      subscribe(event, handler);
+      return { event, handler };
+    });
+
+    const onConnectionChange = (connected) => {
+      if (lastConnectionState.current === null) {
+        lastConnectionState.current = connected;
+        return;
+      }
+
+      if (lastConnectionState.current !== connected) {
+        setAlerts((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            kind: "system",
+            message: connected ? "Realtime connection restored." : "Realtime disconnected. Reconnecting...",
+            tone: connected ? "success" : "warning"
+          }
+        ]);
+        lastConnectionState.current = connected;
+      }
     };
 
-    const onIncidentEscalated = (incident) => {
-      setAlerts((prev) => [...prev, { id: crypto.randomUUID(), type: "Escalated Incident", incident }]);
-    };
-
-    subscribe("incident_created", onIncidentCreated);
-    subscribe("incident_escalated", onIncidentEscalated);
+    subscribeConnection(onConnectionChange);
 
     return () => {
-      unsubscribe("incident_created", onIncidentCreated);
-      unsubscribe("incident_escalated", onIncidentEscalated);
+      handlers.forEach(({ event, handler }) => unsubscribe(event, handler));
+      unsubscribeConnection(onConnectionChange);
     };
   }, []);
 
   useEffect(() => {
     if (!alerts.length) return;
-    const timer = setTimeout(() => {
-      setAlerts((prev) => prev.slice(1));
-    }, 5000);
-
+    const timer = setTimeout(() => setAlerts((prev) => prev.slice(1)), 4000);
     return () => clearTimeout(timer);
   }, [alerts]);
 
   return (
-    <div style={{ position: "fixed", top: 16, right: 16, zIndex: 1000, display: "grid", gap: "0.5rem" }}>
+    <div className="toast-stack">
       {alerts.map((alert) => (
-        <div key={alert.id} className="card" style={{ minWidth: 280 }}>
-          <strong>{alert.type}</strong>
-          <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-            <span>{alert.incident?.title}</span>
-            <SeverityBadge severity={alert.incident?.severity || "LOW"} />
-          </div>
+        <div key={alert.id} className={`card toast ${alert.kind === "system" ? `toast-${alert.tone}` : ""}`}>
+          {alert.kind === "system" ? (
+            <strong>{alert.message}</strong>
+          ) : (
+            <>
+              <strong>{eventMeta[alert.event]}</strong>
+              <div className="toast-row">
+                <span>{alert.incident?.title}</span>
+                <SeverityBadge severity={alert.incident?.severity || "LOW"} />
+              </div>
+            </>
+          )}
         </div>
       ))}
     </div>
