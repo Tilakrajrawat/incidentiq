@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_MONGO_URI": "mongodb://localhost:27017",
+    "COSMOS_DB_NAME": "appdb",
+    "RETENTION_DAYS": "30",
+    "REALTIME_BROADCAST_URL": "http://localhost:4000/api/incidents/events",
+    "REALTIME_EVENT_KEY": "replace-with-shared-realtime-key"
+  }
+}

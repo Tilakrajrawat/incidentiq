@@ -1,11 +1,12 @@
 {
-    "name": "cloud-functions",
+  "name": "incidentiq-functions",
     "version": "1.0.0",
     "private": true,
     "type": "module",
-    "scripts": {
-      "build": "tsc"
-    },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
     "dependencies": {
       "mongodb": "^6.5.0"
     },
