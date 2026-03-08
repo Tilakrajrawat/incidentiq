@@ -1,90 +1,161 @@
-# 🚨 IncidentIQ — Cloud-Native Incident Management System
+# 🚨 IncidentIQ — Cloud-Native Incident Management Platform
 
-A **production-grade incident management platform** built on a cloud-native MERN stack, designed to help engineering teams report, track, escalate, and resolve incidents in real time.
+A **cloud-native incident management platform** built with a **MERN stack and Azure services** that enables engineering teams to **report, track, escalate, and resolve incidents in real time**.
 
-Built with **Azure-native architecture** including serverless background processing, Cosmos DB-compatible data models, infrastructure-as-code, and fully prepared CI/CD pipelines.
+Inspired by tools like **PagerDuty and OpsGenie**, IncidentIQ demonstrates modern **distributed system design**, **real-time WebSocket architecture**, **serverless background processing**, and **cloud-native deployment practices**.
 
 ---
 
 ## 🎯 Problem Statement
 
-When production systems fail, teams need a fast, structured way to report incidents, assign severity, notify the right people, and track resolution. IncidentIQ provides exactly that — a lightweight but powerful incident lifecycle management system inspired by tools like PagerDuty and OpsGenie.
+When production systems fail, teams need a fast and structured incident response workflow. IncidentIQ provides:
+
+- Fast incident reporting with severity classification
+- Structured lifecycle tracking from OPEN to CLOSED
+- Real-time alerts when critical incidents are created or escalated
+- Automatic escalation of unattended critical incidents
+- Operational analytics for incident pattern analysis
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    React Frontend (Vite)                 │
-│              Azure App Service (Static Web App)          │
-└───────────────────────┬─────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│            React Frontend (Vite)              │
+│        Azure Static Web Apps Ready           │
+└───────────────────────┬──────────────────────┘
                         │ REST API + WebSocket
-┌───────────────────────▼─────────────────────────────────┐
-│              Node.js + Express.js Backend                │
-│                 Azure App Service                        │
-│   JWT Auth │ Role-based Access │ WebSocket Server        │
-└───────────────────────┬─────────────────────────────────┘
+┌───────────────────────▼──────────────────────┐
+│            Node.js + Express Backend          │
+│              Azure App Service Ready          │
+│   JWT Auth │ RBAC │ WebSocket Server          │
+│   Rate Limiting │ Validation │ Pagination     │
+└───────────────────────┬──────────────────────┘
                         │
-          ┌─────────────┼──────────────┐
-          │             │              │
-┌─────────▼──┐  ┌───────▼──────┐  ┌───▼──────────────────┐
-│ Cosmos DB  │  │Azure Functions│  │  App Insights Logger  │
-│(Mongo API) │  │  Serverless   │  │  Observability        │
-└────────────┘  └──────────────┘  └──────────────────────┘
-                        │
-          ┌─────────────┼──────────────┐
-          │                            │
-┌─────────▼──────────┐    ┌────────────▼───────────┐
-│ Auto-Escalation    │    │  Cleanup & Archival     │
-│ Timer Trigger      │    │  Timer Trigger          │
-│ (every 15 min)     │    │  (daily)                │
-└────────────────────┘    └────────────────────────┘
+            ┌───────────┼───────────┐
+            │           │           │
+     ┌──────▼──────┐ ┌──▼──────────┐ ┌──────────────────────┐
+     │ Cosmos DB   │ │ Azure Funcs │ │ App Insights Logging  │
+     │ Mongo API   │ │ Serverless  │ │ Observability        │
+     └─────────────┘ │ Background  │ └──────────────────────┘
+                     │ Jobs        │
+                     └─────┬───────┘
+                           │
+              ┌────────────┼─────────────┐
+              │                          │
+     ┌────────▼────────┐        ┌────────▼─────────┐
+     │ Auto Escalation │        │ Cleanup & Archive │
+     │ Timer Trigger   │        │ Timer Trigger     │
+     │ Every 15 min    │        │ Daily at Midnight │
+     └─────────────────┘        └───────────────────┘
 ```
 
 ---
 
-## ✨ Key Features
+## ✨ Core Features
 
 ### 🔐 Authentication & Authorization
 - JWT-based stateless authentication
-- Role-based access control — **Reporter / Responder / Admin**
+- Role-based access control (RBAC)
+
+| Role | Permissions |
+|------|-------------|
+| Reporter | Create and view incidents |
+| Responder | Create, view, update incidents |
+| Admin | Full access including delete and analytics |
+
 - BCrypt password hashing
-- Environment-based secure configuration
+- Role carried in JWT payload
+- Protected route middleware per role
+
+---
 
 ### 🚨 Incident Lifecycle Management
-- Create incidents with severity levels — **Critical / High / Medium / Low**
-- Assign incidents to responders
-- Track status — **Open / Acknowledged / In Progress / Resolved / Closed**
-- Full audit trail of status changes with timestamps
 
-### ⚡ Real-time Features
-- WebSocket-based live notifications when critical incidents are created
-- Live status updates pushed to all active dashboard users
-- Instant alerts when incidents are escalated
+**Severity Levels:**
+```
+CRITICAL → HIGH → MEDIUM → LOW
+```
+
+**Incident Status Flow:**
+```
+OPEN → ACKNOWLEDGED → IN_PROGRESS → RESOLVED → CLOSED
+```
+
+**Capabilities:**
+- Create incidents with title, description, severity, tags
+- Assign incidents to responders
+- Update status with timestamps
+- Track escalation time automatically
+- Archive resolved incidents via background job
+
+---
+
+### ⚡ Real-Time Alerts (WebSocket)
+- Live dashboard updates when incidents are created
+- Instant push notifications for CRITICAL severity incidents
+- Real-time escalation alerts broadcast to all admin users
+- Status change events pushed to all connected clients
+
+**WebSocket Events:**
+```
+incident_created
+incident_updated
+incident_escalated
+incident_resolved
+```
+
+---
 
 ### 🔄 Serverless Background Processing (Azure Functions)
-- **Auto-Escalation Function** — Timer trigger every 15 minutes, automatically escalates unacknowledged Critical incidents and notifies admins
-- **Cleanup Function** — Daily timer trigger archives resolved incidents older than 30 days, keeping the system performant
+
+**Auto-Escalation Function**
+- Trigger: Timer — every 15 minutes
+- Finds CRITICAL incidents still OPEN after 15 minutes
+- Escalates status and records escalation timestamp
+- Broadcasts escalation alert via WebSocket to admins
+
+**Cleanup & Archival Function**
+- Trigger: Timer — daily at midnight
+- Archives CLOSED/RESOLVED incidents older than 30 days
+- Keeps active incident collection lean and performant
+- Environment-driven via COSMOS_DB_NAME, INCIDENT_COLLECTION
+
+---
 
 ### 📊 Analytics Dashboard
-- Active incidents by severity
-- Average resolution time by severity level
-- Incident trend over last 7 days
-- Team response rate metrics
 
-### ☁️ Azure-Native Infrastructure
-- **Azure App Service** — Backend and frontend deployment ready
-- **Cosmos DB (Mongo API)** — Schemas designed with logical partitioning for scalability
-- **Azure Functions** — Serverless background jobs with TypeScript
-- **Azure Application Insights** — Structured logging and observability patterns
-- **Azure Blob Storage** — Incident attachment support
-- **Infrastructure as Code** — Full Bicep templates for all resources
+| Endpoint | Description | Access |
+|----------|-------------|--------|
+| GET /api/analytics/summary | Incident counts by severity and status | Admin |
+| GET /api/analytics/trends | Incident trend over last 7 days | Admin |
+| GET /api/analytics/resolution-time | Average resolution time by severity | Admin |
 
-### 🔄 CI/CD Pipelines
-- GitHub Actions workflows for backend, frontend, and functions deployment
-- Environment-based configuration management
-- Automated deployment to Azure App Service
+---
+
+### 🔒 Security & Reliability
+- BCrypt password hashing
+- JWT token verification middleware
+- Role-based route protection
+- Input validation on all endpoints
+- Rate limiting — 100 requests per 15 minutes per IP
+- Centralized error handling
+- Environment-based secrets management
+
+---
+
+## ☁️ Azure Cloud Architecture
+
+| Service | Purpose |
+|---------|---------|
+| Azure App Service | Backend hosting |
+| Azure Static Web Apps | Frontend hosting |
+| Azure Cosmos DB (Mongo API) | Primary database |
+| Azure Functions | Auto-escalation + cleanup jobs |
+| Azure Application Insights | Structured logging and observability |
+| GitHub Actions | CI/CD pipelines |
+| Bicep | Infrastructure as Code |
 
 ---
 
@@ -95,25 +166,23 @@ When production systems fail, teams need a fast, structured way to report incide
 - Axios
 - React Router v6
 - Tailwind CSS
-- WebSocket client for real-time updates
+- WebSocket client
 
 ### Backend
 - Node.js + Express.js
 - JWT Authentication
-- WebSocket Server (ws library)
+- WebSocket Server (ws)
 - Mongoose (Cosmos DB Mongo API compatible)
-- Structured logging with Application Insights patterns
+- Express Rate Limit
+- Express Validator
+- Structured logging middleware
 
 ### Cloud & DevOps
-| Service | Purpose |
-|---------|---------|
-| Azure App Service | Backend + Frontend hosting |
-| Azure Cosmos DB (Mongo API) | Primary database with partitioning |
-| Azure Functions | Auto-escalation + cleanup jobs |
-| Azure Application Insights | Logging and observability |
-| Azure Blob Storage | Incident attachments |
-| GitHub Actions | CI/CD pipelines |
-| Bicep | Infrastructure as Code |
+- Azure App Service
+- Azure Cosmos DB
+- Azure Functions (TypeScript)
+- GitHub Actions
+- Bicep (Infrastructure as Code)
 
 ---
 
@@ -140,6 +209,8 @@ IncidentIQ/
 │       │   ├── authMiddleware.js
 │       │   ├── roleMiddleware.js
 │       │   ├── errorHandler.js
+│       │   ├── validate.js
+│       │   ├── rateLimiter.js
 │       │   └── requestLogger.js
 │       ├── routes/
 │       │   ├── authRoutes.js
@@ -185,16 +256,16 @@ IncidentIQ/
 │   └── cleanupIncidents/
 │       ├── function.json
 │       └── index.ts
-├── .github/
-│   └── workflows/
-│       ├── deploy-backend.yml
-│       ├── deploy-frontend.yml
-│       └── deploy-functions.yml
-└── infra/
-    ├── cosmos.bicep
-    ├── appservice.bicep
-    ├── functionapp.bicep
-    └── storage.bicep
+├── infra/
+│   ├── cosmos.bicep
+│   ├── appservice.bicep
+│   ├── functionapp.bicep
+│   └── storage.bicep
+└── .github/
+    └── workflows/
+        ├── deploy-backend.yml
+        ├── deploy-frontend.yml
+        └── deploy-functions.yml
 ```
 
 ---
@@ -202,33 +273,43 @@ IncidentIQ/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- MongoDB (local) or Azure Cosmos DB connection string
-- Azure Functions Core Tools (for local function development)
+```
+Node.js 18+
+MongoDB (local) or Azure Cosmos DB connection string
+Azure Functions Core Tools v4
+```
 
-### Local Development
-
+### Clone Repository
 ```bash
-# Clone the repository
 git clone https://github.com/Tilakrajrawat/IncidentIQ.git
 cd IncidentIQ
+```
 
-# Backend setup
+### Backend Setup
+```bash
 cd backend
 cp .env.example .env
-# Add your MongoDB/Cosmos DB connection string to .env
+# Fill in MongoDB/Cosmos DB connection string and JWT secret
 npm install
 npm run dev
+# Server runs on http://localhost:5000
+```
 
-# Frontend setup (new terminal)
+### Frontend Setup
+```bash
 cd frontend
 cp .env.example .env
+# Set VITE_API_URL=http://localhost:5000 in .env
 npm install
 npm run dev
+# App runs on http://localhost:5173
+```
 
-# Functions setup (new terminal)
+### Azure Functions Setup
+```bash
 cd functions
 cp local.settings.json.example local.settings.json
+# Fill in Cosmos DB connection string
 npm install
 func start
 ```
@@ -240,9 +321,9 @@ func start
 ### Authentication
 | Method | Endpoint | Description | Access |
 |--------|----------|-------------|--------|
-| POST | /api/auth/register | Register new user | Public |
-| POST | /api/auth/login | Login and get JWT | Public |
-| GET | /api/auth/me | Get current user | All roles |
+| POST | /api/auth/register | Register with role selection | Public |
+| POST | /api/auth/login | Login and receive JWT | Public |
+| GET | /api/auth/me | Get current user profile | All roles |
 
 ### Incidents
 | Method | Endpoint | Description | Access |
@@ -257,26 +338,26 @@ func start
 ### Analytics
 | Method | Endpoint | Description | Access |
 |--------|----------|-------------|--------|
-| GET | /api/analytics/summary | Incident counts by severity and status | Admin |
-| GET | /api/analytics/trends | Incident trend over last 7 days | Admin |
-| GET | /api/analytics/resolution-time | Average resolution time by severity | Admin |
+| GET | /api/analytics/summary | Counts by severity and status | Admin |
+| GET | /api/analytics/trends | Last 7 days trend | Admin |
+| GET | /api/analytics/resolution-time | Avg resolution time by severity | Admin |
 
 ---
 
-## 🗄️ Data Models
+## 🗄️ Data Model
 
 ### Incident Schema
 ```javascript
 {
-  title: String,           // Short incident description
-  description: String,     // Detailed description
+  title: String,
+  description: String,
   severity: String,        // CRITICAL / HIGH / MEDIUM / LOW
   status: String,          // OPEN / ACKNOWLEDGED / IN_PROGRESS / RESOLVED / CLOSED
   assignedTo: ObjectId,    // Reference to User
   reportedBy: ObjectId,    // Reference to User
-  tags: [String],          // e.g. ['database', 'api', 'frontend']
-  escalatedAt: Date,       // Set when auto-escalated
-  resolvedAt: Date,        // Set when resolved
+  tags: [String],
+  escalatedAt: Date,
+  resolvedAt: Date,
   createdAt: Date,
   updatedAt: Date
 }
@@ -284,47 +365,34 @@ func start
 
 ---
 
-## ⚡ Azure Functions
-
-### Auto-Escalation Function
-- **Trigger**: Timer — runs every 15 minutes
-- **Logic**: Finds all CRITICAL incidents that are still OPEN after 15 minutes, escalates to IN_PROGRESS, notifies admin users via WebSocket
-- **Purpose**: Ensures critical incidents never go unacknowledged
-
-### Cleanup Function
-- **Trigger**: Timer — runs daily at midnight
-- **Logic**: Archives CLOSED incidents older than 30 days to reduce query load
-- **Purpose**: Keeps active incident collection lean and performant
-
----
-
-## 🔍 Key Design Decisions
+## 🔑 Key Design Decisions
 
 **Why Cosmos DB?**
-Incidents are partitioned by severity, allowing high-throughput queries for critical incidents without scanning the entire collection.
+Incidents are partitioned by severity, enabling high-throughput queries for critical incidents without full collection scans.
 
-**Why WebSockets for alerts?**
-Polling for real-time incident alerts would create unnecessary load. WebSocket connections allow instant push notifications to all active dashboard users when critical incidents are created or escalated.
+**Why WebSockets over polling?**
+Polling for real-time alerts creates unnecessary load. WebSocket connections allow instant push notifications to all active dashboard users when critical incidents are created or escalated.
 
 **Why Azure Functions for escalation?**
-Escalation logic needs to run independently of user requests. A serverless timer trigger is the ideal pattern — no always-on server needed, scales automatically, costs nothing when idle.
+Escalation logic needs to run on a schedule, independent of user requests. A serverless timer trigger is the ideal pattern — no always-on server required, scales automatically, zero cost when idle.
 
-**Why JWT over sessions?**
-The backend is designed for horizontal scaling on Azure App Service. Stateless JWT authentication means any instance can validate any token without shared session storage.
+**Why stateless JWT?**
+The backend is designed for horizontal scaling on Azure App Service. Stateless JWT means any instance can validate any token without shared session storage.
 
 ---
 
 ## 📈 Future Enhancements
 - Email/SMS notifications via Azure Communication Services
-- On-call schedule management
+- File attachments via Azure Blob Storage
 - Slack/Teams webhook integration
+- On-call schedule management
+- SLA breach alerts
 - Mobile responsive PWA
-- SLA tracking and breach alerts
 
 ---
 
 ## 👨‍💻 Author
 
-**Tilak Raj Rawat**  
-Final Year B.Tech CSE — Graphic Era Hill University  
+**Tilak Raj Rawat**
+Final Year B.Tech CSE — Graphic Era Hill University
 [LinkedIn](https://linkedin.com/in/tilakrajrawat142) | [GitHub](https://github.com/Tilakrajrawat)
