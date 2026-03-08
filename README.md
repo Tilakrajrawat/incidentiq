@@ -328,8 +328,3 @@ func start
 }
 ```
 
----
-
-## 📝 Notes
-
-This README intentionally reflects **current behavior in code**. If you want an aspirational view of upcoming capabilities, keep planned items in a separate roadmap doc.
