@@ -1,73 +1,67 @@
-# 🚨 IncidentIQ — Cloud-Native Incident Management Platform
+# 🚨 IncidentIQ — Incident Management Platform (Current Implementation)
 
-A **cloud-native incident management platform** built with a **MERN stack and Azure services** that enables engineering teams to **report, track, escalate, and resolve incidents in real time**.
+A full-stack incident management platform built with a **React frontend**, **Node.js/Express backend**, **Mongo-compatible data model**, and optional **Azure Functions + Bicep infrastructure**.
 
-Inspired by tools like **PagerDuty and OpsGenie**, IncidentIQ demonstrates modern **distributed system design**, **real-time WebSocket architecture**, **serverless background processing**, and **cloud-native deployment practices**.
-
----
-
-## 🎯 Problem Statement
-
-When production systems fail, teams need a fast and structured incident response workflow. IncidentIQ provides:
-
-- Fast incident reporting with severity classification
-- Structured lifecycle tracking from OPEN to CLOSED
-- Real-time alerts when critical incidents are created or escalated
-- Automatic escalation of unattended critical incidents
-- Operational analytics for incident pattern analysis
+It supports core incident workflows: authentication, role-aware access controls, incident CRUD, websocket broadcasts, and analytics endpoints.
 
 ---
 
-## 🏗️ System Architecture
+## ✅ What this repository currently provides
+
+- JWT-based auth (`register`, `login`, `me`)
+- Role model: `reporter`, `responder`, `admin`
+- Incident/record CRUD via `/api/incidents` (aliased to record routes)
+- Severity and status fields with lifecycle timestamps (`acknowledgedAt`, `resolvedAt`)
+- WebSocket event broadcasting for incident changes
+- Admin-only analytics APIs
+- Azure Function timers for auto-escalation and cleanup
+
+---
+
+## 🏗️ Runtime Architecture
 
 ```
 ┌──────────────────────────────────────────────┐
-│            React Frontend (Vite)              │
-│        Azure Static Web Apps Ready           │
+│                 React + Vite                  │
 └───────────────────────┬──────────────────────┘
                         │ REST API + WebSocket
 ┌───────────────────────▼──────────────────────┐
-│            Node.js + Express Backend          │
-│              Azure App Service Ready          │
-│   JWT Auth │ RBAC │ WebSocket Server          │
-│   Rate Limiting │ Validation │ Pagination     │
+│             Node.js + Express Backend         │
+│   JWT Auth │ Role Checks │ WebSocket Server   │
+│   Rate Limiting │ Validation │ Pagination      │
 └───────────────────────┬──────────────────────┘
                         │
             ┌───────────┼───────────┐
             │           │           │
      ┌──────▼──────┐ ┌──▼──────────┐ ┌──────────────────────┐
-     │ Cosmos DB   │ │ Azure Funcs │ │ App Insights Logging  │
-     │ Mongo API   │ │ Serverless  │ │ Observability        │
-     └─────────────┘ │ Background  │ └──────────────────────┘
-                     │ Jobs        │
-                     └─────┬───────┘
+     │ MongoDB /   │ │ Azure Funcs │ │ App Insights          │
+     │ Cosmos API  │ │ Timers      │ │ (optional logging)    │
+     └─────────────┘ └─────┬───────┘ └──────────────────────┘
                            │
               ┌────────────┼─────────────┐
               │                          │
      ┌────────▼────────┐        ┌────────▼─────────┐
-     │ Auto Escalation │        │ Cleanup & Archive │
-     │ Timer Trigger   │        │ Timer Trigger     │
-     │ Every 15 min    │        │ Daily at Midnight │
+     │ Auto Escalation │        │ Cleanup (Delete) │
+     │ Every 15 min    │        │ Daily at 2:00 AM │
      └─────────────────┘        └───────────────────┘
 ```
 
 ---
 
-## ✨ Core Features
+## ✨ Implemented Features
 
 ### 🔐 Authentication & Authorization
 - JWT-based stateless authentication
-- Role-based access control (RBAC)
+- Role checks on protected routes
+- BCrypt password hashing
+- Role carried in JWT payload
+- Route protection middleware (`authMiddleware`, `requireRole`)
 
 | Role | Permissions |
 |------|-------------|
-| Reporter | Create and view incidents |
-| Responder | Create, view, update incidents |
-| Admin | Full access including delete and analytics |
-
-- BCrypt password hashing
-- Role carried in JWT payload
-- Protected route middleware per role
+| Reporter | Register/login, create incidents, view own incidents |
+| Responder | Same role model supported in auth payload (no dedicated responder-only route layer yet) |
+| Admin | View all incidents, delete incidents, access analytics |
 
 ---
 
@@ -75,36 +69,31 @@ When production systems fail, teams need a fast and structured incident response
 
 **Severity Levels:**
 ```
-CRITICAL → HIGH → MEDIUM → LOW
+critical → high → medium → low
 ```
 
-**Incident Status Flow:**
+**Incident Status Values:**
 ```
-OPEN → ACKNOWLEDGED → IN_PROGRESS → RESOLVED → CLOSED
+open → acknowledged → in_progress → resolved → closed
 ```
 
 **Capabilities:**
-- Create incidents with title, description, severity, tags
-- Assign incidents to responders
-- Update status with timestamps
-- Track escalation time automatically
-- Archive resolved incidents via background job
+- Create incidents with title, description/content, severity, optional tags in metadata
+- Optional assignment field (`assignedTo`)
+- Update status and write `acknowledgedAt`/`resolvedAt` timestamps
+- Auto-mark escalated critical incidents via timer function
+- Delete resolved/closed old incidents via cleanup timer
 
 ---
 
 ### ⚡ Real-Time Alerts (WebSocket)
-- Live dashboard updates when incidents are created
-- Instant push notifications for CRITICAL severity incidents
-- Real-time escalation alerts broadcast to all admin users
-- Status change events pushed to all connected clients
-
-**WebSocket Events:**
-```
-incident_created
-incident_updated
-incident_escalated
-incident_resolved
-```
+- Incident events are broadcast to connected clients
+- Frontend toast-style alerts currently subscribe to:
+  - `incident_created`
+  - `incident_escalated`
+- Backend also broadcasts:
+  - `incident_updated`
+  - `incident_resolved`
 
 ---
 
@@ -112,19 +101,18 @@ incident_resolved
 
 **Auto-Escalation Function**
 - Trigger: Timer — every 15 minutes
-- Finds CRITICAL incidents still OPEN after 15 minutes
-- Escalates status and records escalation timestamp
-- Broadcasts escalation alert via WebSocket to admins
+- Finds critical incidents still open after 15 minutes
+- Marks `escalated: true` and writes escalation metadata
+- Forwards `incident_escalated` event to backend event endpoint (best effort)
 
-**Cleanup & Archival Function**
-- Trigger: Timer — daily at midnight
-- Archives CLOSED/RESOLVED incidents older than 30 days
-- Keeps active incident collection lean and performant
-- Environment-driven via COSMOS_DB_NAME, INCIDENT_COLLECTION
+**Cleanup Function**
+- Trigger: Timer — daily at 2:00 AM (`0 0 2 * * *`)
+- Deletes closed/resolved incidents older than retention window (default 30 days)
+- Uses `RETENTION_DAYS` env var
 
 ---
 
-### 📊 Analytics Dashboard
+### 📊 Analytics API
 
 | Endpoint | Description | Access |
 |----------|-------------|--------|
@@ -132,30 +120,30 @@ incident_resolved
 | GET /api/analytics/trends | Incident trend over last 7 days | Admin |
 | GET /api/analytics/resolution-time | Average resolution time by severity | Admin |
 
+> Note: these analytics endpoints are implemented in the backend API. A dedicated frontend analytics page is not included yet.
+
 ---
 
 ### 🔒 Security & Reliability
 - BCrypt password hashing
 - JWT token verification middleware
 - Role-based route protection
-- Input validation on all endpoints
+- Input validation on register/create routes
 - Rate limiting — 100 requests per 15 minutes per IP
 - Centralized error handling
 - Environment-based secrets management
 
 ---
 
-## ☁️ Azure Cloud Architecture
+## ☁️ Azure Components in this repo
 
 | Service | Purpose |
 |---------|---------|
-| Azure App Service | Backend hosting |
-| Azure Static Web Apps | Frontend hosting |
-| Azure Cosmos DB (Mongo API) | Primary database |
-| Azure Functions | Auto-escalation + cleanup jobs |
-| Azure Application Insights | Structured logging and observability |
-| GitHub Actions | CI/CD pipelines |
-| Bicep | Infrastructure as Code |
+| Azure App Service (Bicep) | Backend app + plan resources |
+| Azure Cosmos DB (Mongo API) (Bicep) | Mongo-compatible account |
+| Azure Functions (Bicep + TS functions) | Auto-escalation + cleanup timers |
+| Storage Account (Bicep) | Function app storage dependency |
+| Application Insights (runtime option) | Optional telemetry via connection string |
 
 ---
 
@@ -171,28 +159,22 @@ incident_resolved
 ### Backend
 - Node.js + Express.js
 - JWT Authentication
-- WebSocket Server (ws)
-- Mongoose (Cosmos DB Mongo API compatible)
+- WebSocket Server (`ws`)
+- Mongoose
 - Express Rate Limit
 - Express Validator
-- Structured logging middleware
 
-### Cloud & DevOps
-- Azure App Service
-- Azure Cosmos DB
+### Cloud / Infra
 - Azure Functions (TypeScript)
-- GitHub Actions
-- Bicep (Infrastructure as Code)
+- Bicep templates for App Service, Cosmos DB, Function App, Storage
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Structure (actual)
 
 ```
 IncidentIQ/
 ├── backend/
-│   ├── .env.example
-│   ├── package.json
 │   └── src/
 │       ├── app.js
 │       ├── server.js
@@ -200,11 +182,11 @@ IncidentIQ/
 │       │   └── db.js
 │       ├── controllers/
 │       │   ├── authController.js
-│       │   ├── incidentController.js
+│       │   ├── recordController.js
 │       │   └── analyticsController.js
 │       ├── models/
 │       │   ├── User.js
-│       │   └── Incident.js
+│       │   └── Record.js
 │       ├── middleware/
 │       │   ├── authMiddleware.js
 │       │   ├── roleMiddleware.js
@@ -214,15 +196,13 @@ IncidentIQ/
 │       │   └── requestLogger.js
 │       ├── routes/
 │       │   ├── authRoutes.js
-│       │   ├── incidentRoutes.js
+│       │   ├── recordRoutes.js
 │       │   └── analyticsRoutes.js
 │       ├── websocket/
 │       │   └── wsServer.js
 │       └── utils/
 │           └── logger.js
 ├── frontend/
-│   ├── .env.example
-│   ├── package.json
 │   └── src/
 │       ├── main.jsx
 │       ├── App.jsx
@@ -235,37 +215,24 @@ IncidentIQ/
 │       │   ├── ProtectedRoute.jsx
 │       │   ├── IncidentCard.jsx
 │       │   ├── SeverityBadge.jsx
+│       │   ├── RecordForm.jsx
+│       │   ├── RecordList.jsx
 │       │   └── RealTimeAlert.jsx
 │       └── pages/
 │           ├── Login.jsx
 │           ├── Register.jsx
 │           ├── Dashboard.jsx
-│           ├── Incidents.jsx
-│           ├── IncidentDetail.jsx
-│           └── Analytics.jsx
+│           ├── Records.jsx
+│           └── IncidentDetail.jsx
 ├── functions/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── host.json
-│   ├── local.settings.json.example
-│   ├── shared/
-│   │   └── cosmosClient.ts
-│   ├── autoEscalation/
-│   │   ├── function.json
-│   │   └── index.ts
-│   └── cleanupIncidents/
-│       ├── function.json
-│       └── index.ts
-├── infra/
-│   ├── cosmos.bicep
-│   ├── appservice.bicep
-│   ├── functionapp.bicep
-│   └── storage.bicep
-└── .github/
-    └── workflows/
-        ├── deploy-backend.yml
-        ├── deploy-frontend.yml
-        └── deploy-functions.yml
+│   ├── processNotifications/
+│   ├── cleanupRecords/
+│   └── shared/
+└── infra/
+    ├── cosmos.bicep
+    ├── appservice.bicep
+    ├── functionapp.bicep
+    └── storage.bicep
 ```
 
 ---
@@ -275,14 +242,8 @@ IncidentIQ/
 ### Prerequisites
 ```
 Node.js 18+
-MongoDB (local) or Azure Cosmos DB connection string
-Azure Functions Core Tools v4
-```
-
-### Clone Repository
-```bash
-git clone https://github.com/Tilakrajrawat/IncidentIQ.git
-cd IncidentIQ
+MongoDB (local) or Azure Cosmos DB Mongo connection string
+Azure Functions Core Tools v4 (optional, for local function runs)
 ```
 
 ### Backend Setup
@@ -292,24 +253,24 @@ cp .env.example .env
 # Fill in MongoDB/Cosmos DB connection string and JWT secret
 npm install
 npm run dev
-# Server runs on http://localhost:5000
+# Server default: http://localhost:4000
 ```
 
 ### Frontend Setup
 ```bash
 cd frontend
 cp .env.example .env
-# Set VITE_API_URL=http://localhost:5000 in .env
+# Set VITE_API_URL=http://localhost:4000 in .env
 npm install
 npm run dev
-# App runs on http://localhost:5173
+# App default: http://localhost:5173
 ```
 
 ### Azure Functions Setup
 ```bash
 cd functions
 cp local.settings.json.example local.settings.json
-# Fill in Cosmos DB connection string
+# Fill in COSMOS_MONGO_URI and related settings
 npm install
 func start
 ```
@@ -323,17 +284,18 @@ func start
 |--------|----------|-------------|--------|
 | POST | /api/auth/register | Register with role selection | Public |
 | POST | /api/auth/login | Login and receive JWT | Public |
-| GET | /api/auth/me | Get current user profile | All roles |
+| GET | /api/auth/me | Get current user profile | Authenticated |
 
 ### Incidents
 | Method | Endpoint | Description | Access |
 |--------|----------|-------------|--------|
-| GET | /api/incidents | Get all incidents (paginated, filterable) | All roles |
-| POST | /api/incidents | Create new incident | Reporter+ |
-| GET | /api/incidents/:id | Get incident by ID | All roles |
-| PUT | /api/incidents/:id | Update incident | Responder+ |
-| PATCH | /api/incidents/:id/status | Update status only | Responder+ |
+| GET | /api/incidents | Get incidents (paginated, filterable) | Authenticated |
+| POST | /api/incidents | Create new incident | Authenticated |
+| GET | /api/incidents/:id | Get incident by ID | Authenticated |
+| PUT | /api/incidents/:id | Update incident fields/status | Authenticated |
 | DELETE | /api/incidents/:id | Delete incident | Admin only |
+
+> `/api/records` is also exposed and maps to the same handlers.
 
 ### Analytics
 | Method | Endpoint | Description | Access |
@@ -346,17 +308,18 @@ func start
 
 ## 🗄️ Data Model
 
-### Incident Schema
+### Record (Incident) Schema
 ```javascript
 {
   title: String,
-  description: String,
-  severity: String,        // CRITICAL / HIGH / MEDIUM / LOW
-  status: String,          // OPEN / ACKNOWLEDGED / IN_PROGRESS / RESOLVED / CLOSED
+  content: String,
+  severity: String,        // critical / high / medium / low
+  status: String,          // open / acknowledged / in_progress / resolved / closed
   assignedTo: ObjectId,    // Reference to User
-  reportedBy: ObjectId,    // Reference to User
-  tags: [String],
-  escalatedAt: Date,
+  userId: ObjectId,        // Reporter
+  escalated: Boolean,
+  metadata: Object,
+  acknowledgedAt: Date,
   resolvedAt: Date,
   createdAt: Date,
   updatedAt: Date
@@ -365,34 +328,6 @@ func start
 
 ---
 
-## 🔑 Key Design Decisions
+## 📝 Notes
 
-**Why Cosmos DB?**
-Incidents are partitioned by severity, enabling high-throughput queries for critical incidents without full collection scans.
-
-**Why WebSockets over polling?**
-Polling for real-time alerts creates unnecessary load. WebSocket connections allow instant push notifications to all active dashboard users when critical incidents are created or escalated.
-
-**Why Azure Functions for escalation?**
-Escalation logic needs to run on a schedule, independent of user requests. A serverless timer trigger is the ideal pattern — no always-on server required, scales automatically, zero cost when idle.
-
-**Why stateless JWT?**
-The backend is designed for horizontal scaling on Azure App Service. Stateless JWT means any instance can validate any token without shared session storage.
-
----
-
-## 📈 Future Enhancements
-- Email/SMS notifications via Azure Communication Services
-- File attachments via Azure Blob Storage
-- Slack/Teams webhook integration
-- On-call schedule management
-- SLA breach alerts
-- Mobile responsive PWA
-
----
-
-## 👨‍💻 Author
-
-**Tilak Raj Rawat**
-Final Year B.Tech CSE — Graphic Era Hill University
-[LinkedIn](https://linkedin.com/in/tilakrajrawat142) | [GitHub](https://github.com/Tilakrajrawat)
+This README intentionally reflects **current behavior in code**. If you want an aspirational view of upcoming capabilities, keep planned items in a separate roadmap doc.
