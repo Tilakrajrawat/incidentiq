@@ -15,16 +15,19 @@ export default function Navbar() {
     <nav className="nav">
       <div className="nav-left">
         <span className="nav-title">IncidentIQ</span>
+
         {user && (
           <>
             <Link to="/" className="nav-link">Dashboard</Link>
             <Link to="/incidents" className="nav-link">Incidents</Link>
+
             {user.role === "admin" && (
               <Link to="/analytics" className="nav-link">Analytics</Link>
             )}
           </>
         )}
       </div>
+
       <div className="nav-right">
         {user && (
           <>

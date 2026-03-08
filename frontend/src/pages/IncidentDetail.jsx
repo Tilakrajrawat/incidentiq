@@ -13,12 +13,16 @@ const statusOptions = ["open", "acknowledged", "in_progress", "resolved", "close
 export default function IncidentDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+
   const [incident, setIncident] = useState(null);
   const [responders, setResponders] = useState([]);
+
   const [status, setStatus] = useState("open");
   const [assignedTo, setAssignedTo] = useState("");
+
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -28,10 +32,13 @@ export default function IncidentDetail() {
   const loadIncident = async () => {
     try {
       setLoading(true);
+
       const res = await api.get(`/api/incidents/${id}`);
+
       setIncident(res.data || null);
       setStatus(res.data?.status || "open");
       setAssignedTo(res.data?.assignedTo?._id || "");
+
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Failed to load incident."));
     } finally {
@@ -50,6 +57,7 @@ export default function IncidentDetail() {
 
   const loadResponders = async () => {
     if (!canAssign) return;
+
     try {
       const res = await api.get("/api/auth/responders");
       setResponders(res.data.responders || []);
@@ -61,8 +69,13 @@ export default function IncidentDetail() {
 
   const saveUpdates = async () => {
     const payload = {};
-    if (canUpdateStatus && status !== incident.status) payload.status = status;
-    if (canAssign) payload.assignedTo = assignedTo || null;
+
+    if (canUpdateStatus && status !== incident.status)
+      payload.status = status;
+
+    if (canAssign)
+      payload.assignedTo = assignedTo || null;
+
     if (!Object.keys(payload).length) return;
 
     try {
@@ -86,15 +99,23 @@ export default function IncidentDetail() {
 
     setUploading(true);
     setError("");
+
     try {
       const contentBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+        reader.onload = () =>
+          resolve(String(reader.result).split(",")[1] || "");
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      await api.post(`/api/incidents/${id}/attachments`, { fileName: file.name, contentBase64 });
+
+      await api.post(`/api/incidents/${id}/attachments`, {
+        fileName: file.name,
+        contentBase64
+      });
+
       await loadAttachments();
+
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Attachment upload failed."));
     } finally {
@@ -106,13 +127,21 @@ export default function IncidentDetail() {
   const downloadAttachment = async (fileName) => {
     try {
       const encoded = encodeURIComponent(fileName);
-      const response = await api.get(`/api/incidents/${id}/attachments/${encoded}`, { responseType: "blob" });
+
+      const response = await api.get(
+        `/api/incidents/${id}/attachments/${encoded}`,
+        { responseType: "blob" }
+      );
+
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement("a");
+
       link.href = url;
       link.download = fileName;
       link.click();
+
       window.URL.revokeObjectURL(url);
+
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Attachment download failed."));
     }
@@ -127,72 +156,141 @@ export default function IncidentDetail() {
     loadResponders();
   }, [canAssign]);
 
-  if (loading) return <p className="muted">Loading incident details...</p>;
-  if (!incident) return <p>Incident not found.</p>;
+  if (loading)
+    return <p className="muted">Loading incident details...</p>;
+
+  if (!incident)
+    return <p>Incident not found.</p>;
 
   return (
     <div className="page">
+
       <h1>{incident.title}</h1>
+
       <ErrorBanner message={error} />
+
       <div className="badge-row">
         <SeverityBadge severity={incident.severity} />
         <StatusBadge status={incident.status} />
         <SlaBadge incident={incident} showRemaining />
       </div>
-      <p className="record-content">{incident.content || "No description provided."}</p>
+
+      <p className="record-content">
+        {incident.content || "No description provided."}
+      </p>
 
       {(canAssign || canUpdateStatus) && (
         <div className="card detail-grid">
+
           {canUpdateStatus && (
             <label>
               Status
-              <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select
+                className="input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
                 {statusOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
             </label>
           )}
+
           {canAssign && (
             <label>
               Assigned responder
-              <select className="input" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+              <select
+                className="input"
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value)}
+              >
                 <option value="">Unassigned</option>
+
                 {responders.map((responder) => (
-                  <option key={responder._id} value={responder._id}>{responder.name} ({responder.role})</option>
+                  <option key={responder._id} value={responder._id}>
+                    {responder.name} ({responder.role})
+                  </option>
                 ))}
               </select>
             </label>
           )}
-          <button className="btn primary" onClick={saveUpdates}>Save Changes</button>
+
+          <button className="btn primary" onClick={saveUpdates}>
+            Save Changes
+          </button>
+
         </div>
       )}
 
       <div className="card">
+
         <h3>Attachments</h3>
+
         <label className="btn">
           {uploading ? "Uploading..." : "Upload attachment"}
-          <input type="file" className="hidden-input" onChange={uploadAttachment} disabled={uploading} />
+          <input
+            type="file"
+            className="hidden-input"
+            onChange={uploadAttachment}
+            disabled={uploading}
+          />
         </label>
+
         <div className="attachments-list">
+
           {attachments.map((file) => (
-            <button key={file.fileName} className="attachment-link" onClick={() => downloadAttachment(file.fileName)}>
+            <button
+              key={file.fileName}
+              className="attachment-link"
+              onClick={() => downloadAttachment(file.fileName)}
+            >
               {file.fileName} ({Math.round(file.size / 1024)} KB)
             </button>
           ))}
-          {!attachments.length && <p className="muted">No attachments yet.</p>}
+
+          {!attachments.length && (
+            <p className="muted">No attachments yet.</p>
+          )}
+
         </div>
+
       </div>
 
       <div className="card">
+
         <h3>Incident Lifecycle</h3>
+
         <ul className="timeline">
-          <li><strong>Created:</strong> {new Date(incident.createdAt).toLocaleString()}</li>
-          <li><strong>Acknowledged:</strong> {incident.acknowledgedAt ? new Date(incident.acknowledgedAt).toLocaleString() : "Not yet"}</li>
-          <li><strong>Resolved:</strong> {incident.resolvedAt ? new Date(incident.resolvedAt).toLocaleString() : "Not yet"}</li>
-          <li><strong>Last Updated:</strong> {new Date(incident.updatedAt).toLocaleString()}</li>
+          <li>
+            <strong>Created:</strong>{" "}
+            {new Date(incident.createdAt).toLocaleString()}
+          </li>
+
+          <li>
+            <strong>Acknowledged:</strong>{" "}
+            {incident.acknowledgedAt
+              ? new Date(incident.acknowledgedAt).toLocaleString()
+              : "Not yet"}
+          </li>
+
+          <li>
+            <strong>Resolved:</strong>{" "}
+            {incident.resolvedAt
+              ? new Date(incident.resolvedAt).toLocaleString()
+              : "Not yet"}
+          </li>
+
+          <li>
+            <strong>Last Updated:</strong>{" "}
+            {new Date(incident.updatedAt).toLocaleString()}
+          </li>
         </ul>
+
       </div>
+
     </div>
   );
 }

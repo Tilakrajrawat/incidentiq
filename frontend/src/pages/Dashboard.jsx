@@ -9,9 +9,17 @@ import SimpleTrendChart from "../components/SimpleTrendChart.jsx";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [metrics, setMetrics] = useState({ open: 0, critical: 0, recentCreated: [], recentResolved: [] });
+
+  const [metrics, setMetrics] = useState({
+    open: 0,
+    critical: 0,
+    recentCreated: [],
+    recentResolved: []
+  });
+
   const [summary, setSummary] = useState({ bySeverity: [], byStatus: [] });
   const [trend, setTrend] = useState([]);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -19,13 +27,15 @@ export default function Dashboard() {
     const loadMetrics = async () => {
       setError("");
       setLoading(true);
+
       try {
-        const [openRes, criticalRes, createdRes, resolvedRes] = await Promise.all([
-          api.get("/api/incidents", { params: { status: "open", page: 1, limit: 1 } }),
-          api.get("/api/incidents", { params: { severity: "critical", page: 1, limit: 1 } }),
-          api.get("/api/incidents", { params: { page: 1, limit: 10 } }),
-          api.get("/api/incidents", { params: { status: "resolved", page: 1, limit: 10 } })
-        ]);
+        const [openRes, criticalRes, createdRes, resolvedRes] =
+          await Promise.all([
+            api.get("/api/incidents", { params: { status: "open", page: 1, limit: 1 } }),
+            api.get("/api/incidents", { params: { severity: "critical", page: 1, limit: 1 } }),
+            api.get("/api/incidents", { params: { page: 1, limit: 10 } }),
+            api.get("/api/incidents", { params: { status: "resolved", page: 1, limit: 10 } })
+          ]);
 
         setMetrics({
           open: openRes.data.total || 0,
@@ -33,8 +43,14 @@ export default function Dashboard() {
           recentCreated: createdRes.data.incidents || [],
           recentResolved: resolvedRes.data.incidents || []
         });
+
       } catch (requestError) {
-        setError(getApiErrorMessage(requestError, "Failed to load dashboard metrics."));
+        setError(
+          getApiErrorMessage(
+            requestError,
+            "Failed to load dashboard metrics."
+          )
+        );
       } finally {
         setLoading(false);
       }
@@ -55,8 +71,14 @@ export default function Dashboard() {
 
         setSummary(summaryRes.data || { bySeverity: [], byStatus: [] });
         setTrend(trendRes.data || []);
+
       } catch (requestError) {
-        setError(getApiErrorMessage(requestError, "Failed to load analytics widgets."));
+        setError(
+          getApiErrorMessage(
+            requestError,
+            "Failed to load analytics widgets."
+          )
+        );
       }
     };
 
@@ -90,58 +112,107 @@ export default function Dashboard() {
     return [...createdEvents, ...resolvedEvents, ...escalatedEvents]
       .sort((a, b) => new Date(b.at) - new Date(a.at))
       .slice(0, 10);
+
   }, [metrics]);
 
   return (
     <div className="page">
       <h1>Dashboard</h1>
-      <p>Welcome, <strong>{user?.name}</strong>.</p>
+
+      <p>
+        Welcome, <strong>{user?.name}</strong>.
+      </p>
+
       <ErrorBanner message={error} />
+
       {loading && <p className="muted">Loading dashboard data...</p>}
 
       <div className="stats-grid">
-        <div className="card"><h3>Open Incidents</h3><p className="metric">{metrics.open}</p></div>
-        <div className="card"><h3>Critical Incidents</h3><p className="metric">{metrics.critical}</p></div>
+        <div className="card">
+          <h3>Open Incidents</h3>
+          <p className="metric">{metrics.open}</p>
+        </div>
+
+        <div className="card">
+          <h3>Critical Incidents</h3>
+          <p className="metric">{metrics.critical}</p>
+        </div>
       </div>
 
       {user?.role === "admin" && (
         <div className="stats-grid">
+
           <SimpleBarChart
             title="Incidents by Severity"
-            data={summary.bySeverity.map((item) => ({ label: item._id, count: item.count }))}
+            data={summary.bySeverity.map((item) => ({
+              label: item._id,
+              count: item.count
+            }))}
           />
+
           <SimpleBarChart
             title="Incidents by Status"
-            data={summary.byStatus.map((item) => ({ label: item._id, count: item.count }))}
+            data={summary.byStatus.map((item) => ({
+              label: item._id,
+              count: item.count
+            }))}
           />
+
           <SimpleTrendChart data={trend} />
+
         </div>
       )}
 
       <div className="stats-grid">
+
         <div className="card">
           <h3>Recently Created</h3>
+
           {metrics.recentCreated.slice(0, 5).map((incident) => (
-            <p key={incident._id} className="compact-item">{incident.title} <StatusBadge status={incident.status} /></p>
+            <p key={incident._id} className="compact-item">
+              {incident.title}
+              <StatusBadge status={incident.status} />
+            </p>
           ))}
+
         </div>
+
         <div className="card">
           <h3>Recently Resolved</h3>
+
           {metrics.recentResolved.slice(0, 5).map((incident) => (
-            <p key={incident._id} className="compact-item">{incident.title} <StatusBadge status={incident.status} /></p>
+            <p key={incident._id} className="compact-item">
+              {incident.title}
+              <StatusBadge status={incident.status} />
+            </p>
           ))}
+
         </div>
+
       </div>
 
       <div className="card">
+
         <h3>Recent Activity</h3>
-        {recentActivity.length === 0 && <p className="muted">No activity yet.</p>}
+
+        {recentActivity.length === 0 && (
+          <p className="muted">No activity yet.</p>
+        )}
+
         {recentActivity.map((activity) => (
           <p key={activity.id} className="compact-item">
-            <span>{activity.type}: {activity.title}</span>
-            <small className="record-meta">{new Date(activity.at).toLocaleString()}</small>
+
+            <span>
+              {activity.type}: {activity.title}
+            </span>
+
+            <small className="record-meta">
+              {new Date(activity.at).toLocaleString()}
+            </small>
+
           </p>
         ))}
+
       </div>
     </div>
   );

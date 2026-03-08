@@ -16,8 +16,12 @@ export default function RealTimeAlert() {
   useEffect(() => {
     const handlers = Object.keys(eventMeta).map((event) => {
       const handler = (incident) => {
-        setAlerts((prev) => [...prev, { id: crypto.randomUUID(), event, incident, kind: "incident" }]);
+        setAlerts((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), event, incident, kind: "incident" }
+        ]);
       };
+
       subscribe(event, handler);
       return { event, handler };
     });
@@ -34,10 +38,13 @@ export default function RealTimeAlert() {
           {
             id: crypto.randomUUID(),
             kind: "system",
-            message: connected ? "Realtime connection restored." : "Realtime disconnected. Reconnecting...",
+            message: connected
+              ? "Realtime connection restored."
+              : "Realtime disconnected. Reconnecting...",
             tone: connected ? "success" : "warning"
           }
         ]);
+
         lastConnectionState.current = connected;
       }
     };
@@ -52,19 +59,29 @@ export default function RealTimeAlert() {
 
   useEffect(() => {
     if (!alerts.length) return;
-    const timer = setTimeout(() => setAlerts((prev) => prev.slice(1)), 4000);
+
+    const timer = setTimeout(() => {
+      setAlerts((prev) => prev.slice(1));
+    }, 4000);
+
     return () => clearTimeout(timer);
   }, [alerts]);
 
   return (
     <div className="toast-stack">
       {alerts.map((alert) => (
-        <div key={alert.id} className={`card toast ${alert.kind === "system" ? `toast-${alert.tone}` : ""}`}>
+        <div
+          key={alert.id}
+          className={`card toast ${
+            alert.kind === "system" ? `toast-${alert.tone}` : ""
+          }`}
+        >
           {alert.kind === "system" ? (
             <strong>{alert.message}</strong>
           ) : (
             <>
               <strong>{eventMeta[alert.event]}</strong>
+
               <div className="toast-row">
                 <span>{alert.incident?.title}</span>
                 <SeverityBadge severity={alert.incident?.severity || "LOW"} />
