@@ -1,5 +1,5 @@
 {
-  "scriptFile": "./index.ts",
+  "scriptFile": "../dist/processNotifications/index.js",
   "bindings": [
     {
       "name": "myTimer",
