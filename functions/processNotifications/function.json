@@ -1,17 +1,11 @@
 {
-    "bindings": [
-      {
-        "type": "httpTrigger",
-        "direction": "in",
-        "name": "req",
-        "methods": ["post"],
-        "authLevel": "function"
-      },
-      {
-        "type": "http",
-        "direction": "out",
-        "name": "res"
-      }
-    ]
-  }
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 */15 * * * *"
+    }
+  ]
+}
   

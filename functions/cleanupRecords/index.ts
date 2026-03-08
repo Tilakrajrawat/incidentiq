@@ -13,7 +13,10 @@ export default async function (context: any) {
 
   const result = await db
     .collection("records")
-    .deleteMany({ createdAt: { $lt: cutoffDate } });
+    .deleteMany({
+      status: { $in: ["resolved", "closed"] },
+      updatedAt: { $lt: cutoffDate }
+    });
 
-  context.log(`Deleted ${result.deletedCount} old records`);
+  context.log(`Deleted ${result.deletedCount} resolved incidents older than ${retentionDays} days`);
 }

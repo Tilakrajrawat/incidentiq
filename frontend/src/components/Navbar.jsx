@@ -14,14 +14,14 @@ export default function Navbar() {
   return (
     <nav className="nav">
       <div className="nav-left">
-        <span className="nav-title">Cloud-Native MERN App</span>
+        <span className="nav-title">IncidentIQ</span>
         {user && (
           <>
             <Link to="/" className="nav-link">
               Dashboard
             </Link>
-            <Link to="/records" className="nav-link">
-              Records
+            <Link to="/incidents" className="nav-link">
+              Incidents
             </Link>
           </>
         )}

@@ -10,20 +10,20 @@ export default function Records() {
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/api/records");
-      setRecords(res.data);
+      const res = await api.get("/api/incidents");
+      setRecords(res.data.incidents || res.data);
     } finally {
       setLoading(false);
     }
   };
 
   const createRecord = async (data) => {
-    const res = await api.post("/api/records", data);
+    const res = await api.post("/api/incidents", data);
     setRecords((prev) => [res.data, ...prev]);
   };
 
   const deleteRecord = async (id) => {
-    await api.delete(`/api/records/${id}`);
+    await api.delete(`/api/incidents/${id}`);
     setRecords((prev) => prev.filter((r) => r._id !== id));
   };
 
@@ -33,7 +33,7 @@ export default function Records() {
 
   return (
     <div className="page">
-      <h1>Your Records</h1>
+      <h1>Incident Queue</h1>
       <RecordForm onCreate={createRecord} />
       {loading ? <p>Loading...</p> : <RecordList records={records} onDelete={deleteRecord} />}
     </div>

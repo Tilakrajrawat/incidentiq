@@ -3,6 +3,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Records from "./pages/Records.jsx";
+import IncidentDetail from "./pages/IncidentDetail.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
 
@@ -25,12 +26,22 @@ export default function App() {
         }
       />
       <Route
-        path="/records"
+        path="/incidents"
         element=
         {
           <ProtectedRoute>
             <Layout>
               <Records />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/incidents/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <IncidentDetail />
             </Layout>
           </ProtectedRoute>
         }

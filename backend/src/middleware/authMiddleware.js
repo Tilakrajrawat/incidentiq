@@ -10,7 +10,7 @@ export const authMiddleware = (req, res, next) => {
   const token = authHeader.split(" ")[1];
   try {
     const payload = jwt.verify(token, jwtSecret);
-    req.user = { id: payload.sub, email: payload.email };
+    req.user = { id: payload.sub, email: payload.email, role: payload.role || "reporter" };
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });

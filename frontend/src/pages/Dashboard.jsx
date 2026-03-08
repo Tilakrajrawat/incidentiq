@@ -7,9 +7,10 @@ export default function Dashboard() {
     <div className="page">
       <h1>Dashboard</h1>
       <p>Welcome, <strong>{user?.name}</strong>.</p>
+      <p>Your role: <strong>{user?.role || "reporter"}</strong>.</p>
       <p>
-        This app is designed as a <strong>cloud-native MERN</strong> project,
-        with a structure ready for Azure App Service, Functions, and Cosmos DB.
+        IncidentIQ now supports incident severity and status tracking with API compatibility for
+        <code> /api/incidents</code>, helping align the app behavior with the production-grade README.
       </p>
     </div>
   );

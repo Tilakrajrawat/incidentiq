@@ -1,36 +1,43 @@
-import { ObjectId } from "mongodb";
 import { getCosmosClient } from "../shared/cosmosClient.js";
+import { broadcast } from "../shared/broadcast.js";
 
-export default async function (context: any, req: any) {
-  const { recordId } = req.body || {};
-
-  if (!recordId) {
-    return {
-      status: 400,
-      body: "recordId is required"
-    };
-  }
+export default async function (context: any) {
+  context.log("Auto-escalation function started");
 
   const client = await getCosmosClient();
-  const db = client.db("appdb");
+  const db = client.db(process.env.COSMOS_DB_NAME || "appdb");
 
-  const record = await db
-    .collection("records")
-    .findOne({ _id: new ObjectId(recordId) });
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
-  if (!record) {
-    return {
-      status: 404,
-      body: "Record not found"
-    };
-  }
+  const collection = db.collection("records");
+  const toEscalate = await collection
+    .find({
+      severity: "critical",
+      status: "open",
+      escalated: { $ne: true },
+      createdAt: { $lt: fifteenMinutesAgo }
+    })
+    .toArray();
 
-  context.log(
-    `Processing notification for record "${record.title}"`
+  const result = await collection.updateMany(
+    {
+      severity: "critical",
+      status: "open",
+      escalated: { $ne: true },
+      createdAt: { $lt: fifteenMinutesAgo }
+    },
+    {
+      $set: {
+        escalated: true,
+        metadata: {
+          escalationReason: "Critical incident remained unacknowledged for over 15 minutes",
+          escalatedAt: new Date().toISOString()
+        }
+      }
+    }
   );
 
-  return {
-    status: 200,
-    body: "Notification processed"
-  };
+  await Promise.all(toEscalate.map((incident) => broadcast("incident_escalated", incident)));
+
+  context.log(`Auto-escalated ${result.modifiedCount} critical incidents`);
 }

@@ -6,6 +6,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("reporter");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -13,7 +14,7 @@ export default function Register() {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/api/auth/register", { name, email, password });
+      await api.post("/api/auth/register", { name, email, password, role });
       alert("Registered. Please log in.");
       navigate("/login");
     } catch (err) {
@@ -45,6 +46,11 @@ export default function Register() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="reporter">Reporter</option>
+          <option value="responder">Responder</option>
+          <option value="admin">Admin</option>
+        </select>
         <button className="btn primary">Register</button>
         <p className="muted">
           Already have an account? <Link to="/login">Login</Link>
