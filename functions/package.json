@@ -1,17 +1,23 @@
 {
-    "name": "cloud-functions",
-    "version": "1.0.0",
-    "private": true,
-    "type": "module",
-    "scripts": {
-      "build": "tsc"
-    },
-    "dependencies": {
-      "mongodb": "^6.5.0"
-    },
-    "devDependencies": {
-      "@types/node": "^20.11.0",
-      "typescript": "^5.3.3"
-    }
+  "name": "incidentiq-functions",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Azure Functions for IncidentIQ background processing.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
+    "check": "tsc --noEmit",
+    "start": "func start"
+  },
+  "dependencies": {
+    "mongodb": "^6.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
   }
-  
+}

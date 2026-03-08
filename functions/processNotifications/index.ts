@@ -1,36 +1,35 @@
-import { ObjectId } from "mongodb";
 import { getCosmosClient } from "../shared/cosmosClient.js";
 
-export default async function (context: any, req: any) {
-  const { recordId } = req.body || {};
+type TimerContext = {
+  log: (...args: unknown[]) => void;
+};
 
-  if (!recordId) {
-    return {
-      status: 400,
-      body: "recordId is required"
-    };
-  }
+export default async function (context: TimerContext) {
+  context.log("AutoEscalation function started");
 
   const client = await getCosmosClient();
-  const db = client.db("appdb");
+  const db = client.db(process.env.COSMOS_DB_NAME || "appdb");
+  const collectionName = process.env.INCIDENT_COLLECTION || "records";
 
-  const record = await db
-    .collection("records")
-    .findOne({ _id: new ObjectId(recordId) });
+  const escalationMinutes = Number(process.env.AUTO_ESCALATION_MINUTES || 15);
+  const cutoffDate = new Date(Date.now() - escalationMinutes * 60 * 1000);
 
-  if (!record) {
-    return {
-      status: 404,
-      body: "Record not found"
-    };
-  }
-
-  context.log(
-    `Processing notification for record "${record.title}"`
+  const result = await db.collection(collectionName).updateMany(
+    {
+      createdAt: { $lt: cutoffDate },
+      $or: [
+        { "metadata.severity": "CRITICAL", "metadata.status": "OPEN" },
+        { "metadata.severity": "Critical", "metadata.status": "Open" }
+      ]
+    },
+    {
+      $set: {
+        "metadata.status": "IN_PROGRESS",
+        "metadata.escalatedAt": new Date(),
+        updatedAt: new Date()
+      }
+    }
   );
 
-  return {
-    status: 200,
-    body: "Notification processed"
-  };
+  context.log(`Auto-escalated ${result.modifiedCount} records`);
 }

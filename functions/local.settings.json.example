@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "COSMOS_MONGO_URI": "mongodb://localhost:27017",
+    "COSMOS_DB_NAME": "appdb",
+    "INCIDENT_COLLECTION": "records",
+    "RETENTION_DAYS": "30",
+    "AUTO_ESCALATION_MINUTES": "15"
+  }
+}
