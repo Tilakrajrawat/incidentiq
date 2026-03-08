@@ -272,7 +272,9 @@ cd functions
 cp local.settings.json.example local.settings.json
 # Fill in COSMOS_MONGO_URI and related settings
 npm install
+npm run build
 func start
+# or: npm start
 ```
 
 ---
