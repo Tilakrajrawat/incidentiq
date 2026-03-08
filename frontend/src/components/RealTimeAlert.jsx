@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import SeverityBadge from "./SeverityBadge.jsx";
-import { subscribe, unsubscribe } from "../lib/websocket";
+import { subscribe, unsubscribe, subscribeConnection, unsubscribeConnection } from "../lib/websocket";
 
 const eventMeta = {
   incident_created: "New incident created",
@@ -15,14 +15,29 @@ export default function RealTimeAlert() {
   useEffect(() => {
     const handlers = Object.keys(eventMeta).map((event) => {
       const handler = (incident) => {
-        setAlerts((prev) => [...prev, { id: crypto.randomUUID(), event, incident }]);
+        setAlerts((prev) => [...prev, { id: crypto.randomUUID(), event, incident, kind: "incident" }]);
       };
       subscribe(event, handler);
       return { event, handler };
     });
 
+    const onConnectionChange = (connected) => {
+      setAlerts((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          kind: "system",
+          message: connected ? "Realtime connection restored." : "Realtime disconnected. Reconnecting...",
+          tone: connected ? "success" : "warning"
+        }
+      ]);
+    };
+
+    subscribeConnection(onConnectionChange);
+
     return () => {
       handlers.forEach(({ event, handler }) => unsubscribe(event, handler));
+      unsubscribeConnection(onConnectionChange);
     };
   }, []);
 
@@ -35,12 +50,18 @@ export default function RealTimeAlert() {
   return (
     <div className="toast-stack">
       {alerts.map((alert) => (
-        <div key={alert.id} className="card toast">
-          <strong>{eventMeta[alert.event]}</strong>
-          <div className="toast-row">
-            <span>{alert.incident?.title}</span>
-            <SeverityBadge severity={alert.incident?.severity || "LOW"} />
-          </div>
+        <div key={alert.id} className={`card toast ${alert.kind === "system" ? `toast-${alert.tone}` : ""}`}>
+          {alert.kind === "system" ? (
+            <strong>{alert.message}</strong>
+          ) : (
+            <>
+              <strong>{eventMeta[alert.event]}</strong>
+              <div className="toast-row">
+                <span>{alert.incident?.title}</span>
+                <SeverityBadge severity={alert.incident?.severity || "LOW"} />
+              </div>
+            </>
+          )}
         </div>
       ))}
     </div>

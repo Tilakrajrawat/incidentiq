@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
 import SeverityBadge from "../components/SeverityBadge.jsx";
 import StatusBadge from "../components/StatusBadge.jsx";
 import SlaBadge from "../components/SlaBadge.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useAuth } from "../lib/auth.jsx";
 
 const statusOptions = ["open", "acknowledged", "in_progress", "resolved", "closed"];
@@ -17,20 +19,29 @@ export default function IncidentDetail() {
   const [assignedTo, setAssignedTo] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
   const canAssign = useMemo(() => ["admin", "responder"].includes(user?.role), [user?.role]);
   const canUpdateStatus = useMemo(() => ["admin", "responder"].includes(user?.role), [user?.role]);
 
   const loadIncident = async () => {
-    const res = await api.get(`/api/incidents/${id}`);
-    setIncident(res.data || null);
-    setStatus(res.data?.status || "open");
-    setAssignedTo(res.data?.assignedTo?._id || "");
+    try {
+      const res = await api.get(`/api/incidents/${id}`);
+      setIncident(res.data || null);
+      setStatus(res.data?.status || "open");
+      setAssignedTo(res.data?.assignedTo?._id || "");
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Failed to load incident."));
+    }
   };
 
   const loadAttachments = async () => {
-    const res = await api.get(`/api/incidents/${id}/attachments`);
-    setAttachments(res.data.attachments || []);
+    try {
+      const res = await api.get(`/api/incidents/${id}/attachments`);
+      setAttachments(res.data.attachments || []);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Failed to load attachments."));
+    }
   };
 
   const loadResponders = async () => {
@@ -38,8 +49,9 @@ export default function IncidentDetail() {
     try {
       const res = await api.get("/api/auth/responders");
       setResponders(res.data.responders || []);
-    } catch {
+    } catch (requestError) {
       setResponders([]);
+      setError(getApiErrorMessage(requestError, "Failed to load responders."));
     }
   };
 
@@ -49,15 +61,27 @@ export default function IncidentDetail() {
     if (canAssign) payload.assignedTo = assignedTo || null;
     if (!Object.keys(payload).length) return;
 
-    const res = await api.put(`/api/incidents/${id}`, payload);
-    setIncident(res.data);
+    try {
+      const res = await api.put(`/api/incidents/${id}`, payload);
+      setIncident(res.data);
+      setError("");
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Unable to save incident updates."));
+    }
   };
 
   const uploadAttachment = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File is too large. Maximum attachment size is 10MB.");
+      event.target.value = "";
+      return;
+    }
+
     setUploading(true);
+    setError("");
     try {
       const contentBase64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -67,6 +91,8 @@ export default function IncidentDetail() {
       });
       await api.post(`/api/incidents/${id}/attachments`, { fileName: file.name, contentBase64 });
       await loadAttachments();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Attachment upload failed."));
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -74,14 +100,18 @@ export default function IncidentDetail() {
   };
 
   const downloadAttachment = async (fileName) => {
-    const encoded = encodeURIComponent(fileName);
-    const response = await api.get(`/api/incidents/${id}/attachments/${encoded}`, { responseType: "blob" });
-    const url = window.URL.createObjectURL(response.data);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    try {
+      const encoded = encodeURIComponent(fileName);
+      const response = await api.get(`/api/incidents/${id}/attachments/${encoded}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Attachment download failed."));
+    }
   };
 
   useEffect(() => {
@@ -98,6 +128,7 @@ export default function IncidentDetail() {
   return (
     <div className="page">
       <h1>{incident.title}</h1>
+      <ErrorBanner message={error} />
       <div className="badge-row">
         <SeverityBadge severity={incident.severity} />
         <StatusBadge status={incident.status} />

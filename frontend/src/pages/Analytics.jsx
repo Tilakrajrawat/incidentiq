@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 
 function BarChart({ title, data, xKey, yKey }) {
   const max = Math.max(...data.map((item) => item[yKey]), 1);
@@ -28,18 +30,24 @@ export default function Analytics() {
   const [summary, setSummary] = useState({ bySeverity: [], byStatus: [] });
   const [trend, setTrend] = useState([]);
   const [resolutionTime, setResolutionTime] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      const [summaryRes, trendsRes, resolutionRes] = await Promise.all([
-        api.get("/api/analytics/summary"),
-        api.get("/api/analytics/trends"),
-        api.get("/api/analytics/resolution-time")
-      ]);
+      setError("");
+      try {
+        const [summaryRes, trendsRes, resolutionRes] = await Promise.all([
+          api.get("/api/analytics/summary"),
+          api.get("/api/analytics/trends"),
+          api.get("/api/analytics/resolution-time")
+        ]);
 
-      setSummary(summaryRes.data);
-      setTrend(trendsRes.data || []);
-      setResolutionTime(resolutionRes.data || []);
+        setSummary(summaryRes.data);
+        setTrend(trendsRes.data || []);
+        setResolutionTime(resolutionRes.data || []);
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, "Failed to load analytics data."));
+      }
     };
 
     load();
@@ -57,6 +65,7 @@ export default function Analytics() {
   return (
     <div className="page">
       <h1>Analytics</h1>
+      <ErrorBanner message={error} />
       <div className="analytics-grid">
         <BarChart
           title="Incidents by Severity"

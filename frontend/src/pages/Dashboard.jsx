@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/auth.jsx";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
 import StatusBadge from "../components/StatusBadge.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import SimpleBarChart from "../components/SimpleBarChart.jsx";
 import SimpleTrendChart from "../components/SimpleTrendChart.jsx";
 
@@ -10,22 +12,28 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState({ open: 0, critical: 0, recentCreated: [], recentResolved: [] });
   const [summary, setSummary] = useState({ bySeverity: [], byStatus: [] });
   const [trend, setTrend] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const loadMetrics = async () => {
-      const [openRes, criticalRes, createdRes, resolvedRes] = await Promise.all([
-        api.get("/api/incidents", { params: { status: "open", page: 1, limit: 1 } }),
-        api.get("/api/incidents", { params: { severity: "critical", page: 1, limit: 1 } }),
-        api.get("/api/incidents", { params: { page: 1, limit: 10 } }),
-        api.get("/api/incidents", { params: { status: "resolved", page: 1, limit: 10 } })
-      ]);
+      setError("");
+      try {
+        const [openRes, criticalRes, createdRes, resolvedRes] = await Promise.all([
+          api.get("/api/incidents", { params: { status: "open", page: 1, limit: 1 } }),
+          api.get("/api/incidents", { params: { severity: "critical", page: 1, limit: 1 } }),
+          api.get("/api/incidents", { params: { page: 1, limit: 10 } }),
+          api.get("/api/incidents", { params: { status: "resolved", page: 1, limit: 10 } })
+        ]);
 
-      setMetrics({
-        open: openRes.data.total || 0,
-        critical: criticalRes.data.total || 0,
-        recentCreated: createdRes.data.incidents || [],
-        recentResolved: resolvedRes.data.incidents || []
-      });
+        setMetrics({
+          open: openRes.data.total || 0,
+          critical: criticalRes.data.total || 0,
+          recentCreated: createdRes.data.incidents || [],
+          recentResolved: resolvedRes.data.incidents || []
+        });
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, "Failed to load dashboard metrics."));
+      }
     };
 
     loadMetrics();
@@ -35,13 +43,17 @@ export default function Dashboard() {
     if (user?.role !== "admin") return;
 
     const loadCharts = async () => {
-      const [summaryRes, trendRes] = await Promise.all([
-        api.get("/api/analytics/summary"),
-        api.get("/api/analytics/trends")
-      ]);
+      try {
+        const [summaryRes, trendRes] = await Promise.all([
+          api.get("/api/analytics/summary"),
+          api.get("/api/analytics/trends")
+        ]);
 
-      setSummary(summaryRes.data || { bySeverity: [], byStatus: [] });
-      setTrend(trendRes.data || []);
+        setSummary(summaryRes.data || { bySeverity: [], byStatus: [] });
+        setTrend(trendRes.data || []);
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, "Failed to load analytics widgets."));
+      }
     };
 
     loadCharts();
@@ -80,6 +92,7 @@ export default function Dashboard() {
     <div className="page">
       <h1>Dashboard</h1>
       <p>Welcome, <strong>{user?.name}</strong>.</p>
+      <ErrorBanner message={error} />
 
       <div className="stats-grid">
         <div className="card"><h3>Open Incidents</h3><p className="metric">{metrics.open}</p></div>

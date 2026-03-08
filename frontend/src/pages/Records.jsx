@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
+import { getApiErrorMessage } from "../lib/errors";
 import RecordForm from "../components/RecordForm.jsx";
 import RecordList from "../components/RecordList.jsx";
+import ErrorBanner from "../components/ErrorBanner.jsx";
 import { useAuth } from "../lib/auth.jsx";
 
 const defaultFilters = {
@@ -19,15 +21,19 @@ export default function Records() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [error, setError] = useState("");
 
   const params = useMemo(() => ({ page, limit: 10, ...filters }), [page, filters]);
 
   const loadRecords = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await api.get("/api/incidents", { params });
       setRecords(res.data.incidents || []);
       setPages(res.data.pages || 1);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Failed to load incidents."));
     } finally {
       setLoading(false);
     }
@@ -38,20 +44,29 @@ export default function Records() {
     try {
       const res = await api.get("/api/auth/responders");
       setResponders(res.data.responders || []);
-    } catch {
+    } catch (requestError) {
       setResponders([]);
+      setError(getApiErrorMessage(requestError, "Failed to load responders."));
     }
   };
 
   const createRecord = async (data) => {
-    await api.post("/api/incidents", data);
-    setPage(1);
-    loadRecords();
+    try {
+      await api.post("/api/incidents", data);
+      setPage(1);
+      await loadRecords();
+    } catch (requestError) {
+      throw new Error(getApiErrorMessage(requestError, "Could not create incident."));
+    }
   };
 
   const deleteRecord = async (id) => {
-    await api.delete(`/api/incidents/${id}`);
-    loadRecords();
+    try {
+      await api.delete(`/api/incidents/${id}`);
+      await loadRecords();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "Could not delete incident."));
+    }
   };
 
   const onFilterChange = (key, value) => {
@@ -71,6 +86,7 @@ export default function Records() {
     <div className="page">
       <h1>Incident Queue</h1>
       <p className="muted">Search and filter incidents by severity, status, assignment, and text.</p>
+      <ErrorBanner message={error} />
 
       {user?.role !== "responder" && <RecordForm onCreate={createRecord} />}
 

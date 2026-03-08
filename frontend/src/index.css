@@ -76,6 +76,9 @@ a:hover { text-decoration: underline; }
 .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 .auth-card { width: 320px; }
 .error-text { color: #fecaca; font-size: 0.85rem; }
+
+.success-text { color: #bbf7d0; font-size: 0.85rem; }
+.error-banner { background: #450a0a; border: 1px solid #991b1b; color: #fee2e2; border-radius: 0.5rem; padding: 0.55rem 0.7rem; margin-bottom: 0.75rem; }
 .muted { font-size: 0.85rem; opacity: 0.8; }
 
 .severity-badge, .status-badge, .sla-badge { border-radius: 9999px; padding: 0.2rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
@@ -105,6 +108,8 @@ a:hover { text-decoration: underline; }
 .toast-stack { position: fixed; top: 16px; right: 16px; z-index: 1000; display: grid; gap: 0.5rem; }
 .toast { min-width: 280px; margin-bottom: 0; }
 .toast-row { margin-top: 6px; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.toast-success { border-color: #14532d; }
+.toast-warning { border-color: #78350f; }
 
 .bar-chart { display: grid; gap: 0.5rem; }
 .bar-item { display: grid; gap: 0.2rem; }

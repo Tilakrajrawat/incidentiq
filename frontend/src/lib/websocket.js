@@ -13,6 +13,11 @@ const notifyConnectionStatus = (connected) => {
 };
 
 const connect = () => {
+  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  clearTimeout(reconnectTimer);
   socket = new WebSocket(getSocketUrl());
 
   socket.onopen = () => notifyConnectionStatus(true);
@@ -30,6 +35,10 @@ const connect = () => {
   socket.onclose = () => {
     notifyConnectionStatus(false);
     reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  socket.onerror = () => {
+    notifyConnectionStatus(false);
   };
 };
 
@@ -58,7 +67,7 @@ export const unsubscribe = (event, callback) => {
 export const subscribeConnection = (callback) => {
   connectionListeners.add(callback);
   callback(Boolean(socket && socket.readyState === WebSocket.OPEN));
-  if (!socket || socket.readyState === WebSocket.CLOSED) connect();
+  connect();
 };
 
 export const unsubscribeConnection = (callback) => {
