@@ -1,11 +1,11 @@
 {
-    "bindings": [
-      {
-        "name": "myTimer",
-        "type": "timerTrigger",
-        "direction": "in",
-        "schedule": "0 0 2 * * *"
-      }
-    ]
-  }
-  
+  "scriptFile": "./index.ts",
+  "bindings": [
+    {
+      "name": "myTimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 2 * * *"
+    }
+  ]
+}

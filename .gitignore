@@ -11,3 +11,10 @@ Thumbs.db
 
 # Environment
 *.env
+
+# Azurite local storage
+__azurite_db_*
+AzuriteConfig
+*.blob
+*.queue
+*.table

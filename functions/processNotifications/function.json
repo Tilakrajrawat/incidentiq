@@ -1,4 +1,5 @@
 {
+  "scriptFile": "./index.ts",
   "bindings": [
     {
       "name": "myTimer",
@@ -8,4 +9,3 @@
     }
   ]
 }
-  
