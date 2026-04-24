@@ -255,7 +255,6 @@ func start
 
 ## 🖼️ Screenshots
 
-> Add real images under `docs/screenshots/` when available.
 
 - Dashboard: `docs/screenshots/dashboard.png` *(placeholder)*
 - Analytics: `docs/screenshots/analytics.png` *(placeholder)*
